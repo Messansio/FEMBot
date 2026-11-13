@@ -89,32 +89,34 @@ def detect_language(model, code: str, filename: str | None) -> str:
     return answer["choice"]
 
 
-def find_error_lines(model, lines: list[str]) -> list[int]:
-    # One pass: the whole numbered program is the state, one yes/no question per line.
+LINE_PROMPT = (
+    "Line {n} is `{line}`. Will this line fail to compile, crash at runtime, or behave "
+    "incorrectly? Check syntax (missing colons, brackets, parentheses), names that are "
+    "misspelled or never defined, assignments used where a comparison is meant, and values "
+    "used with the wrong type. A line that is valid and does what it intends is correct."
+)
+
+
+def line_scores(model, lines: list[str], prompt: str = LINE_PROMPT) -> dict[int, float]:
+    """P(bug) for every non-blank line. One pass: the whole numbered program is the state."""
     state = "\n".join(f"{n}: {line}" for n, line in enumerate(lines, 1))
     questions = {
         f"line_{n}": {
             "type": "noul",
-            "instructions": (
-                f"Line {n} is `{line.strip()}`. Will this line fail to compile, crash at runtime, "
-                "or behave incorrectly? Check syntax (missing colons, brackets, parentheses), names "
-                "that are misspelled or never defined, assignments used where a comparison is meant, "
-                "and values used with the wrong type. A line that is valid and does what it intends "
-                "is correct."
-            ),
+            "instructions": prompt.format(n=n, line=line.strip()),
             "criteria": {"true": "the line has a bug", "false": "the line is correct"},
         }
         for n, line in enumerate(lines, 1)
         if line.strip()
     }
     if not questions:
-        return []
+        return {}
     answers = model.system_one(state, questions)["answers"]
-    return sorted(
-        int(name.removeprefix("line_"))
-        for name, answer in answers.items()
-        if p_yes(answer) >= ERROR_THRESHOLD
-    )
+    return {int(name.removeprefix("line_")): p_yes(answer) for name, answer in answers.items()}
+
+
+def find_error_lines(model, lines: list[str]) -> list[int]:
+    return sorted(n for n, p in line_scores(model, lines).items() if p >= ERROR_THRESHOLD)
 
 
 def compiler_errors(code: str, language: str, filename: str | None) -> dict[int, str]:

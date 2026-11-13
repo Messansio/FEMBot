@@ -28,7 +28,10 @@ The model needs about 8 GB of RAM.
 
 The model can miss bugs or flag correct lines. Tune it with `REVIEW_THRESHOLD`
 (default `0.8`, higher means fewer lines flagged) or pick another d1 model with
-`REVIEW_MODEL`.
+`REVIEW_MODEL`. Before changing the prompt, threshold or model, measure the
+change on the sample cases with `uv run python eval.py [model-id]` in `review/`.
+The model mostly catches syntax, naming and type mistakes; it often misses
+logic bugs such as a wrong loop bound or comparison.
 
 ## Setup
 

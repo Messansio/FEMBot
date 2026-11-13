@@ -1,5 +1,8 @@
 import { clearCommand } from "./clear.js";
 import { codeReviewCommand } from "./code-review.js";
+import { gitCommand } from "./git.js";
+import { githubCommand } from "./github.js";
+import { projectCommand } from "./project.js";
 import { avatarCommand } from "./avatar.js";
 import { pingCommand } from "./ping.js";
 import { pollCommand } from "./poll.js";
@@ -15,4 +18,7 @@ export const commands: Command[] = [
   avatarCommand,
   pollCommand,
   codeReviewCommand,
+  githubCommand,
+  projectCommand,
+  gitCommand,
 ];

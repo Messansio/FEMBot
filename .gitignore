@@ -42,3 +42,6 @@ Thumbs.db
 # Python code-review worker
 .venv/
 __pycache__/
+
+# Bot data (SQLite: encrypted tokens, projects)
+data/

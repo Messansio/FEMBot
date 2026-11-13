@@ -1,13 +1,26 @@
 # DiscordBotNew
 
-A modular Discord bot built with TypeScript, Node.js, and discord.js. It currently
-provides a single `/ping` slash command.
+A modular Discord bot built with TypeScript, Node.js, and discord.js.
+
+| Command | What it does |
+|---|---|
+| `/github login · status · logout` | Connect your GitHub account (read-only, sign-in happens on GitHub) |
+| `/project create` | Private category for a repo you own, with text and voice channels |
+| `/project invite` | One-click invite link, in a server or any DM; joiners need access to the repo on GitHub |
+| `/project ban · unban · mute · unmute` | Moderate the project channels (mutes are timed) |
+| `/project delete` | Delete the project's channels after typing the repo name; never the repo |
+| `/git commit · tree · pr` | Commit diffs, the branch graph (image or text) and pull requests, in a Vercel-style theme |
+| `/code-review` | Highlight lines with errors in a file or pasted code |
+| `/ping`, `/clear`, `/userinfo`, `/serverinfo`, `/avatar`, `/poll` | Utilities |
+
+The bot never changes a GitHub repository: it only reads. To turn on the GitHub
+commands, follow [docs/github-setup.md](docs/github-setup.md).
 
 ## Requirements
 
-- Node.js 22.12 or newer
+- Node.js 22.13 or newer (uses the built-in `node:sqlite`)
 - A Discord application and bot created in the [Discord Developer Portal](https://discord.com/developers/applications)
-- [uv](https://docs.astral.sh/uv/), for the `/code-review` command
+- [uv](https://docs.astral.sh/uv/), for `/code-review` and the `/git` images (run `uv sync` in `review/` once)
 
 ## `/code-review`
 
@@ -57,7 +70,9 @@ logic bugs such as a wrong loop bound or comparison.
    Keep `.env` private and never commit your bot token.
 
 3. Invite the bot to your server with the `bot` and `applications.commands`
-   OAuth2 scopes. The bot only needs the `Guilds` gateway intent for `/ping`.
+   OAuth2 scopes. It uses the `Guilds` and `GuildVoiceStates` gateway intents
+   (neither is privileged). The GitHub commands need more permissions and setup:
+   see [docs/github-setup.md](docs/github-setup.md).
 
 ## Start the bot (development)
 
@@ -81,6 +96,12 @@ npm run dev
 
 Leave this terminal running while you use the bot. For later starts, run
 `npm run dev`; redeploy commands only when their definitions change.
+
+## Tests
+
+```sh
+npm test
+```
 
 ## Start the bot (production)
 

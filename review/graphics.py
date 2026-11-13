@@ -100,7 +100,7 @@ def draw_graph(data: dict) -> bytes:
     c = Canvas(width, height)
     k = c.k
     c.text((pad, pad + 10), data["repo"], sans(22 * k, 600), theme.FOREGROUND)
-    subtitle = f"{data['branchCount']} branches  ·  last {len(rows)} commits  ·  default {data['defaultBranch']}"
+    subtitle = data["subtitle"]
     c.text((pad, pad + 40), subtitle, sans(13 * k), theme.SECONDARY)
     c.line([(pad, top - 12), (width - pad, top - 12)], theme.BORDER, 1)
 
@@ -131,7 +131,8 @@ def draw_graph(data: dict) -> bytes:
         c.line(points, color)
 
     for i, row in enumerate(rows):
-        y_prev = center_y(i - 1) if i else top - 6
+        # Window scrolled down: lanes enter from the top edge.
+        y_prev = center_y(i - 1) if i else top - (14 if data.get("continuesAbove") else 6)
         for e in row["above"]:
             edge(lane_x(e["from"]), y_prev, lane_x(e["to"]), center_y(i), theme.lane_color(e["color"]))
     if rows:

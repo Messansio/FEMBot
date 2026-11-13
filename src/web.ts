@@ -258,6 +258,10 @@ async function handle(client: Client, url: URL, res: ServerResponse): Promise<vo
 
 export function startWebServer(client: Client): void {
   const { webPort, publicUrl } = getGitHubSetup();
+  const publicLocal = new URL(publicUrl);
+  if (["localhost", "127.0.0.1"].includes(publicLocal.hostname) && Number(publicLocal.port || 80) !== webPort) {
+    console.warn(`PUBLIC_URL (${publicUrl}) doesn't use WEB_PORT ${webPort}: sign-in links won't reach the bot.`);
+  }
   setInterval(deleteExpired, 10 * 60 * 1000).unref();
   createServer((req, res) => {
     if (req.method !== "GET") return page(res, 405, "Method not allowed", "Only links from Discord work here.", "error");

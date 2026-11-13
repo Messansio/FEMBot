@@ -25,18 +25,20 @@ This turns on `/github`, `/project` and `/git`. It takes about 15 minutes:
 ## 1. Pick the bot's public URL
 
 GitHub and Discord send people back to the bot after they sign in, so the bot runs
-a small web server (port `WEB_PORT`, default `3000`). `PUBLIC_URL` is the address
-people's browsers use to reach it.
+a small web server. **You choose its port with `WEB_PORT` in `.env`** (default
+`3000`). `PUBLIC_URL` is the address people's browsers use to reach that port. If
+`PUBLIC_URL` is a localhost address on a different port, the bot warns you at
+startup.
 
 | Situation | `PUBLIC_URL` |
 |---|---|
-| Only you, testing on this computer | `http://localhost:3000` |
+| Only you, testing on this computer | `http://localhost:<WEB_PORT>`, e.g. `http://localhost:3000` |
 | Friends must be able to join | An HTTPS address that reaches port 3000 on the bot's machine |
 
 For friends, the quickest option is a [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/do-more-with-tunnels/trycloudflare/):
 
 ```sh
-cloudflared tunnel --url http://localhost:3000
+cloudflared tunnel --url http://localhost:3000   # use your WEB_PORT
 ```
 
 It prints an `https://….trycloudflare.com` address. That address changes every
@@ -46,39 +48,10 @@ own domain.
 
 ## 2. Create the GitHub App
 
-1. Open <https://github.com/settings/apps/new> (for an organization:
-   *Organization settings → Developer settings → GitHub Apps → New GitHub App*).
-2. Fill in:
-   - **GitHub App name**: anything unique, e.g. `FEMBot-yourname`.
-   - **Homepage URL**: your repository's URL, or `PUBLIC_URL`.
-   - **Callback URL**: `PUBLIC_URL/oauth/github/callback`, for example
-     `http://localhost:3000/oauth/github/callback`.
-   - **Expire user authorization tokens**: leave this **checked**.
-   - **Request user authorization (OAuth) during installation**: leave unchecked.
-   - **Webhook → Active**: **uncheck** it. The bot doesn't use webhooks.
-3. **Permissions → Repository permissions**. Set only these three; leave every
-   other permission at *No access*:
-   - **Contents**: Read-only (commits and diffs)
-   - **Metadata**: Read-only (required)
-   - **Pull requests**: Read-only
-4. **Where can this GitHub App be installed?**
-   - *Any account* if other people will create projects for their own repos.
-   - *Only on this account* if only you will.
-5. Click **Create GitHub App**.
-6. On the app's page:
-   - Copy the **Client ID** into `GITHUB_CLIENT_ID`.
-   - Click **Generate a new client secret** and copy it into
-     `GITHUB_CLIENT_SECRET`. GitHub shows it only once.
-   - Copy the slug from the app's public link, `https://github.com/apps/<slug>`,
-     into `GITHUB_APP_SLUG`.
-   - You don't need a private key: the bot never acts as the app itself.
-7. **Install the app on your repositories**: on the app's page, click
-   *Install App*, choose your account, then pick *All repositories* or the ones
-   you want.
-   - Public repositories work without installing.
-   - **Private repositories need it.** GitHub only lets the bot see private repos
-     where the app is installed. People you invite also need their own access to
-     the repo on GitHub.
+Follow the step-by-step tutorial: **[docs/github-app.md](github-app.md)**. It covers
+every field on GitHub's form, the read-only permissions, installing the app on
+private repositories, and how to check it works. You'll come back with
+`GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` and `GITHUB_APP_SLUG`.
 
 ## 3. Configure the Discord application
 
@@ -94,9 +67,9 @@ open your bot's application:
    DMs, for example to invite a friend from your private chat with them.
 4. **Installation → Default Install Settings**:
    - Guild Install scopes: `bot` and `applications.commands`. Permissions:
-     *View Channels, Manage Channels, Manage Roles, Move Members, Create Instant
-     Invite, Send Messages, Embed Links, Attach Files, Read Message History,
-     Connect*.
+     *View Channels, Manage Channels, Manage Roles, Manage Messages, Move Members,
+     Create Instant Invite, Send Messages, Embed Links, Attach Files, Add Reactions,
+     Read Message History, Connect*.
    - User Install scope: `applications.commands`.
 5. Use the **Install Link** to add the bot to your server again, so it gets the new
    permissions.
@@ -112,6 +85,7 @@ Why these permissions:
 | Manage Roles | Per-person access, mutes and bans on the project channels |
 | Move Members | Disconnecting banned or muted people from project voice channels |
 | Create Instant Invite | Adding an invited person to the server when they click the link |
+| Add Reactions, Manage Messages | The ⬆️/⬇️ scroll buttons on `/git tree` (Manage Messages removes your click right away) |
 
 ## 4. Fill in `.env` and start the bot
 
@@ -163,7 +137,8 @@ The console should show `OAuth server listening on :3000`. If it says
    - adds them to the server if they aren't in it yet;
    - opens the project channel.
 4. Inside a project channel, try `/git tree`, `/git tree format:text`,
-   `/git commit hash:<sha>` and `/git pr`.
+   `/git tree from:2025-01-01 to:2025-03-31`, `/git commit hash:<sha>` and `/git pr`.
+   Click ⬆️/⬇️ under a tree to scroll it.
 5. Moderation: `/project mute user:@x duration:30m`, `/project unmute`,
    `/project ban`, `/project unban`.
 6. `/project delete` asks you to type the repo name, then deletes only the

@@ -42,6 +42,14 @@ export interface GitHubSetup {
 
 let githubSetup: GitHubSetup | undefined;
 
+function parsePort(value: string): number {
+  const port = Number(value);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new UserError(`WEB_PORT must be a port number (1-65535), got "${value}".`);
+  }
+  return port;
+}
+
 /** Settings for the GitHub project commands; throws a readable error until docs/github-setup.md is done. */
 export function getGitHubSetup(): GitHubSetup {
   if (githubSetup) return githubSetup;
@@ -64,7 +72,7 @@ export function getGitHubSetup(): GitHubSetup {
     githubClientSecret: getRequiredEnvironmentVariable("GITHUB_CLIENT_SECRET"),
     githubAppSlug: getRequiredEnvironmentVariable("GITHUB_APP_SLUG"),
     publicUrl: getRequiredEnvironmentVariable("PUBLIC_URL").replace(/\/+$/, ""),
-    webPort: Number(getOptionalEnvironmentVariable("WEB_PORT") ?? 3000),
+    webPort: parsePort(getOptionalEnvironmentVariable("WEB_PORT") ?? "3000"),
     tokenEncryptionKey,
   };
   return githubSetup;

@@ -4,9 +4,9 @@ import { GitHubError, githubGet, githubQuery } from "./github.js";
 import { packMessages, renderCommitSummary, renderPatches } from "./render/commit.js";
 import type { CommitDetails } from "./render/commit.js";
 import { layoutGraph, renderGraphText, topoSort } from "./render/graph.js";
-import type { GraphCommit } from "./render/graph.js";
+import type { GraphCommit, GraphLayout } from "./render/graph.js";
 import { fetchAvatar, renderImage } from "./render/images.js";
-import { ansiBlock, padEnd, paint, relativeTime, symbols, truncate } from "./theme.js";
+import { ansiBlock, padEnd, paint, relativeTime, shortDate, symbols, truncate } from "./theme.js";
 
 export interface RepoRef {
   owner: string;
@@ -88,7 +88,7 @@ interface HistoryNode {
   parents: { nodes: { oid: string }[] };
 }
 
-const TREE_QUERY = `query Tree($owner: String!, $name: String!) {
+const TREE_QUERY = `query Tree($owner: String!, $name: String!, $since: GitTimestamp, $until: GitTimestamp) {
   repository(owner: $owner, name: $name) {
     nameWithOwner
     url
@@ -100,7 +100,7 @@ const TREE_QUERY = `query Tree($owner: String!, $name: String!) {
         target {
           oid
           ... on Commit {
-            history(first: 40) {
+            history(first: 100, since: $since, until: $until) {
               nodes {
                 oid messageHeadline committedDate
                 author { name avatarUrl user { login } }
@@ -114,9 +114,45 @@ const TREE_QUERY = `query Tree($owner: String!, $name: String!) {
   }
 }`;
 
-export async function treeView(token: string, ref: RepoRef, format: "image" | "text"): Promise<View> {
+export interface DateRange {
+  since: Date | undefined;
+  until: Date | undefined;
+}
+
+/** Everything a tree view needs, fetched once; scrolling re-renders from this. */
+export interface TreeData {
+  repo: string;
+  url: string;
+  defaultBranch: string;
+  branchCount: number;
+  range: DateRange;
+  layout: GraphLayout;
+  avatarUrls: Map<string, string | undefined>;
+  avatarCache: Map<string, string>;
+}
+
+/** "2024-03-01" → Date (UTC); `endOfDay` makes `to` inclusive. */
+export function parseDay(input: string | null, endOfDay: boolean): Date | undefined {
+  if (!input) return undefined;
+  const match = input.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const date = match ? new Date(`${match[0]}T${endOfDay ? "23:59:59" : "00:00:00"}Z`) : undefined;
+  if (!date || Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== match?.[0]) {
+    throw new UserError(`\`${input}\` isn't a date. Use YYYY-MM-DD, e.g. 2024-03-01.`);
+  }
+  return date;
+}
+
+export async function loadTree(token: string, ref: RepoRef, range: DateRange): Promise<TreeData> {
+  if (range.since && range.until && range.since > range.until) {
+    throw new UserError("`from` must be before `to`.");
+  }
   const { repository } = await notFoundAsUserError(
-    githubQuery<TreeQuery>(token, TREE_QUERY, { owner: ref.owner, name: ref.repo }),
+    githubQuery<TreeQuery>(token, TREE_QUERY, {
+      owner: ref.owner,
+      name: ref.repo,
+      since: range.since?.toISOString() ?? null,
+      until: range.until?.toISOString() ?? null,
+    }),
     `Can't find ${ref.owner}/${ref.repo}, or your GitHub account can't see it.`,
   );
   if (!repository) throw new UserError(`Can't find ${ref.owner}/${ref.repo}, or your GitHub account can't see it.`);
@@ -144,41 +180,98 @@ export async function treeView(token: string, ref: RepoRef, format: "image" | "t
       });
     }
   }
+  if (!commits.size) {
+    throw new UserError(`No commits in ${repository.nameWithOwner} ${describeRange(range) || "yet"}.`);
+  }
 
-  const limit = format === "image" ? 32 : 60;
-  const ordered = topoSort([...commits.values()]).slice(0, limit);
+  const ordered = topoSort([...commits.values()]);
   const defaultHead = repository.defaultBranchRef.target.oid;
   // Pin the default branch to lane 0 only when its head is in view (else an empty lane runs down).
   const seeds = ordered.some((c) => c.oid === defaultHead) ? [defaultHead] : [];
-  const layout = layoutGraph(ordered, refs, seeds);
-  const button = githubButton(`${repository.url}/network`, "Open on GitHub");
-
-  if (format === "text") {
-    const lines = renderGraphText(layout, repository.nameWithOwner, defaultBranch, 1990 - 12);
-    return { messages: [ansiBlock(lines)], files: [], components: [button] };
-  }
-
-  const pictures = await avatars(layout.rows.map((row) => avatarUrls.get(row.commit.oid)));
-  const png = await renderImage({
-    kind: "graph",
+  return {
     repo: repository.nameWithOwner,
+    url: repository.url,
     defaultBranch,
     branchCount: repository.refs.totalCount,
-    width: layout.width,
-    tail: layout.tail,
-    rows: layout.rows.map((row) => ({
+    range,
+    layout: layoutGraph(ordered, refs, seeds),
+    avatarUrls,
+    avatarCache: new Map(),
+  };
+}
+
+function describeRange({ since, until }: DateRange): string {
+  const day = (d: Date) => d.toISOString().slice(0, 10);
+  if (since && until) return `${day(since)} → ${day(until)}`;
+  if (since) return `since ${day(since)}`;
+  if (until) return `until ${day(until)}`;
+  return "";
+}
+
+/** Rows [offset, offset + count) as a layout of their own (edges in from above, out below). */
+function windowLayout(layout: GraphLayout, offset: number, count: number): GraphLayout {
+  const rows = layout.rows.slice(offset, offset + count);
+  const tail = layout.rows[offset + count]?.above ?? layout.tail;
+  const lanes = [...rows.flatMap((r) => [r.col, ...r.above.flatMap((e) => [e.from, e.to])]), ...tail.map((e) => e.from)];
+  return { rows, tail: tail.map((e) => ({ ...e, to: e.lane })), width: Math.max(...lanes) + 1 };
+}
+
+export const TREE_IMAGE_ROWS = 32;
+
+/** One page of the tree; `shown` is how many rows it holds (text pages vary). */
+export async function renderTreePage(
+  tree: TreeData,
+  format: "image" | "text",
+  offset: number,
+): Promise<{ view: View; shown: number }> {
+  const total = tree.layout.rows.length;
+  const button = githubButton(`${tree.url}/network`, "Open on GitHub");
+  const subtitle = (shown: number) =>
+    [
+      `${tree.branchCount} branch${tree.branchCount === 1 ? "" : "es"}`,
+      `commits ${offset + 1}–${offset + shown} of ${total}`,
+      `default ${tree.defaultBranch}`,
+      describeRange(tree.range),
+    ]
+      .filter(Boolean)
+      .join("  ·  ");
+
+  if (format === "text") {
+    const window = windowLayout(tree.layout, offset, 60);
+    const { lines, shown } = renderGraphText(window, tree.repo, tree.defaultBranch, subtitle, 1990 - 12);
+    return { view: { messages: [ansiBlock(lines)], files: [], components: [button] }, shown };
+  }
+
+  const window = windowLayout(tree.layout, offset, TREE_IMAGE_ROWS);
+  const missing = window.rows
+    .map((row) => tree.avatarUrls.get(row.commit.oid))
+    .filter((url): url is string => Boolean(url) && !tree.avatarCache.has(url as string));
+  for (const [url, data] of await avatars(missing)) tree.avatarCache.set(url, data);
+
+  const png = await renderImage({
+    kind: "graph",
+    repo: tree.repo,
+    subtitle: subtitle(window.rows.length),
+    defaultBranch: tree.defaultBranch,
+    width: window.width,
+    tail: window.tail,
+    continuesAbove: offset > 0,
+    rows: window.rows.map((row) => ({
       sha: row.commit.oid.slice(0, 7),
       message: row.commit.message,
       author: row.commit.author,
-      date: relativeTime(row.commit.date),
+      date: shortDate(row.commit.date),
       refs: row.refs,
       col: row.col,
       merge: row.commit.parents.length > 1,
       above: row.above,
-      avatar: pictures.get(avatarUrls.get(row.commit.oid) ?? ""),
+      avatar: tree.avatarCache.get(tree.avatarUrls.get(row.commit.oid) ?? ""),
     })),
   });
-  return { messages: [], files: [new AttachmentBuilder(png, { name: "tree.png" })], components: [button] };
+  return {
+    view: { messages: [], files: [new AttachmentBuilder(png, { name: "tree.png" })], components: [button] },
+    shown: window.rows.length,
+  };
 }
 
 // --- Pull requests -------------------------------------------------------------------

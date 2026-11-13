@@ -1,4 +1,4 @@
-import { laneColors, paint, relativeTime, symbols, truncate, visibleLength } from "../theme.js";
+import { laneColors, paint, shortDate, symbols, truncate, visibleLength } from "../theme.js";
 
 export interface GraphCommit {
   oid: string;
@@ -186,19 +186,25 @@ function bars(edges: GraphEdge[], width: number): string {
   return graph;
 }
 
-/** git log --graph in Vercel colours, as many rows as fit in `maxChars`. */
-export function renderGraphText(layout: GraphLayout, repo: string, defaultBranch: string, maxChars: number): string[] {
+/** git log --graph in Vercel colours, as many rows as fit in `maxChars`; `shown` = rows used. */
+export function renderGraphText(
+  layout: GraphLayout,
+  repo: string,
+  defaultBranch: string,
+  subtitle: (shown: number) => string,
+  maxChars: number,
+): { lines: string[]; shown: number } {
   const graphWidth = Math.min(layout.width, 8);
-  const header = [
-    `${paint(` ${symbols.branch} ${repo} `, "foreground", { inverse: true })} ${paint(`default ${defaultBranch}`, "muted")}`,
-    "",
-  ];
-  const lines = [...header];
-  let used = header.join("\n").length;
+  const body: string[] = [];
+  let used = 160; // header room
+  let shown = 0;
 
   for (const [index, row] of layout.rows.entries()) {
-    if (row.col >= graphWidth) continue;
     const leaving = layout.rows[index + 1]?.above ?? layout.tail;
+    if (row.col >= graphWidth) {
+      shown = index + 1; // too far right to draw; counted so scrolling stays consistent
+      continue;
+    }
     const edges = row.above.filter((e) => e.from < graphWidth && e.to < graphWidth);
     const link = connector(edges, graphWidth);
     const refs = row.refs
@@ -212,14 +218,21 @@ export function renderGraphText(layout: GraphLayout, repo: string, defaultBranch
       paint(truncate(row.commit.message, room), "foreground"),
     ].filter(Boolean).join(" ");
     const meta = `${bars(leaving, graphWidth)}${" ".repeat(8)}${paint(
-      `${row.commit.login ? `@${row.commit.login}` : row.commit.author} ${symbols.dot} ${relativeTime(row.commit.date)}`,
+      `${row.commit.login ? `@${row.commit.login}` : row.commit.author} ${symbols.dot} ${shortDate(row.commit.date)}`,
       "muted",
     )}`;
     const add = [link, text, meta].filter((l): l is string => l !== undefined);
     const cost = add.join("\n").length + 1;
     if (used + cost > maxChars) break;
-    lines.push(...add);
+    body.push(...add);
     used += cost;
+    shown = index + 1;
   }
-  return lines;
+
+  const header = [
+    `${paint(` ${symbols.branch} ${repo} `, "foreground", { inverse: true })}`,
+    paint(subtitle(shown), "muted"),
+    "",
+  ];
+  return { lines: [...header, ...body], shown };
 }

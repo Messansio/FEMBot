@@ -12,6 +12,7 @@ import { test } from "node:test";
 
 const { layoutGraph, topoSort } = await import("./render/graph.js");
 const { parseRepoReference } = await import("./github.js");
+const { parseDay } = await import("./gitViews.js");
 const { parseDuration } = await import("./projects.js");
 const { decryptSecret, encryptSecret, hashToken } = await import("./security.js");
 const { commands } = await import("./commands/index.js");
@@ -67,4 +68,12 @@ test("secrets are encrypted, tamper-proof, and never stored in plain text", () =
 
 test("every slash command definition is valid for Discord", () => {
   for (const command of commands) assert.doesNotThrow(() => command.data.toJSON(), command.data.name);
+});
+
+test("tree date range", () => {
+  assert.equal(parseDay("2025-03-01", false)?.toISOString(), "2025-03-01T00:00:00.000Z");
+  assert.equal(parseDay("2025-03-01", true)?.toISOString(), "2025-03-01T23:59:59.000Z");
+  assert.equal(parseDay(null, false), undefined);
+  assert.throws(() => parseDay("2025-02-30", false));
+  assert.throws(() => parseDay("01/03/2025", false));
 });

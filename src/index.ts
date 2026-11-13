@@ -5,6 +5,7 @@ import {
   Events,
   GatewayIntentBits,
   MessageFlags,
+  Partials,
 } from "discord.js";
 import type { Interaction } from "discord.js";
 import { config, isGitHubConfigured } from "./config.js";
@@ -14,11 +15,20 @@ import { UserError } from "./errors.js";
 import { restoreMutes } from "./projects.js";
 import { card, symbols } from "./theme.js";
 import type { Command } from "./types/command.js";
+import { handleTreeReaction } from "./treeScroll.js";
 import { startWebServer } from "./web.js";
 
 const client = new Client({
-  // GuildVoiceStates: to disconnect banned/muted people from project voice channels.
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates],
+  intents: [
+    GatewayIntentBits.Guilds,
+    // To disconnect banned/muted people from project voice channels.
+    GatewayIntentBits.GuildVoiceStates,
+    // ⬆️/⬇️ scrolling under /git tree, in servers and DMs.
+    GatewayIntentBits.GuildMessageReactions,
+    GatewayIntentBits.DirectMessageReactions,
+  ],
+  // DM channels and reactions aren't cached up front; partials let their events through.
+  partials: [Partials.Channel, Partials.Message, Partials.Reaction],
 });
 
 const commandHandlers = new Collection<string, Command>();
@@ -81,6 +91,9 @@ client.on(Events.InteractionCreate, (interaction) => {
     console.error("Failed to handle Discord interaction:", error);
   });
 });
+
+client.on(Events.MessageReactionAdd, (reaction, user) => handleTreeReaction(reaction, user, true));
+client.on(Events.MessageReactionRemove, (reaction, user) => handleTreeReaction(reaction, user, false));
 
 // A project category deleted by hand ends the project too.
 client.on(Events.ChannelDelete, (channel) => {

@@ -4,9 +4,10 @@ import type { Command } from "../types/command.js";
 import { respondWithRepos } from "../autocomplete.js";
 import { UserError } from "../errors.js";
 import { parseRepoReference, requireGitHubToken } from "../github.js";
-import { commitView, pullView, treeView } from "../gitViews.js";
+import { commitView, loadTree, parseDay, pullView, renderTreePage } from "../gitViews.js";
 import type { RepoRef, View } from "../gitViews.js";
 import { projectForChannel } from "../projects.js";
+import { startTreeScroll } from "../treeScroll.js";
 
 /** The `repo` option (owner/name or link), else the project this channel belongs to. */
 function resolveRepo(interaction: ChatInputCommandInteraction): RepoRef {
@@ -61,6 +62,8 @@ export const gitCommand: Command = {
             .setDescription("Image (default) or text")
             .addChoices({ name: "image", value: "image" }, { name: "text", value: "text" }),
         )
+        .addStringOption((o) => o.setName("from").setDescription("Only commits on or after this day (YYYY-MM-DD)"))
+        .addStringOption((o) => o.setName("to").setDescription("Only commits on or before this day (YYYY-MM-DD)"))
         .addStringOption(repoOption),
     )
     .addSubcommand((sub) =>
@@ -73,17 +76,25 @@ export const gitCommand: Command = {
 
   async execute(interaction) {
     const ref = resolveRepo(interaction);
+    // Validate dates before deferring, so a typo answers instantly.
+    parseDay(interaction.options.getString("from"), false);
+    parseDay(interaction.options.getString("to"), true);
     await interaction.deferReply();
     const token = await requireGitHubToken(interaction.user.id);
 
     switch (interaction.options.getSubcommand()) {
       case "commit":
         return sendView(interaction, await commitView(token, ref, interaction.options.getString("hash", true).trim()));
-      case "tree":
-        return sendView(
-          interaction,
-          await treeView(token, ref, interaction.options.getString("format") === "text" ? "text" : "image"),
-        );
+      case "tree": {
+        const format = interaction.options.getString("format") === "text" ? "text" : "image";
+        const tree = await loadTree(token, ref, {
+          since: parseDay(interaction.options.getString("from"), false),
+          until: parseDay(interaction.options.getString("to"), true),
+        });
+        const first = await renderTreePage(tree, format, 0);
+        await sendView(interaction, first.view);
+        return startTreeScroll(await interaction.fetchReply(), tree, format, first);
+      }
       case "pr":
         return sendView(interaction, await pullView(token, ref, interaction.options.getInteger("number")));
     }

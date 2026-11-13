@@ -96,6 +96,13 @@ export function relativeTime(date: string | Date): string {
   return "just now";
 }
 
+/** Relative within a month ("3d ago"), then a calendar day ("12 Mar 2025"): old dates stay distinguishable. */
+export function shortDate(date: string | Date): string {
+  const value = new Date(date);
+  if (Date.now() - value.getTime() < 30 * 86_400_000) return relativeTime(value);
+  return value.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+}
+
 /** GitHub-style diff bar: green squares for additions, red for deletions. */
 export function diffBar(additions: number, deletions: number, width = 10): string {
   const total = additions + deletions;

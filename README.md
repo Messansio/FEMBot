@@ -7,6 +7,25 @@ provides a single `/ping` slash command.
 
 - Node.js 22.12 or newer
 - A Discord application and bot created in the [Discord Developer Portal](https://discord.com/developers/applications)
+- [uv](https://docs.astral.sh/uv/), for the `/code-review` command
+
+## `/code-review`
+
+Attach a code file, or run the command with no file to paste code into a form.
+The bot replies with an image of the code in a Vercel-style dark theme, with the
+lines that contain errors highlighted in red.
+
+The review runs locally on the CPU with Liquid AI's
+[d1-2B](https://huggingface.co/LiquidAI/d1-2B) decision model, from the Python
+project in `review/`. The model detects the language when the file has no
+extension, and rates every line for errors in the context of the whole file.
+On first use, `uv` installs the Python dependencies and the model downloads from
+Hugging Face. That first review takes a while; later ones take a few seconds.
+The model needs about 8 GB of RAM.
+
+The model can miss bugs or flag correct lines. Tune it with `REVIEW_THRESHOLD`
+(default `0.8`, higher means fewer lines flagged) or pick another d1 model with
+`REVIEW_MODEL`.
 
 ## Setup
 

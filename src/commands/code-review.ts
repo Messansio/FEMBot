@@ -16,11 +16,15 @@ const MODAL_TIMEOUT_MS = 15 * 60 * 1000;
 
 async function buildReply(code: string, filename?: string) {
   const review = await reviewCode(code, filename);
+  const details = review.errorLines.map((line) => {
+    const message = review.messages[String(line)] ?? "flagged by the model";
+    return `• Line ${line}: ${message.slice(0, 200)}`;
+  });
   const verdict = review.errorLines.length
-    ? `🔴 Lines with errors: ${review.errorLines.join(", ")}`
+    ? `🔴 Lines with errors: ${review.errorLines.join(", ")}\n${details.join("\n")}`
     : "✅ No errors found.";
   return {
-    content: `**Language:** ${review.language}\n${verdict}`,
+    content: `**Language:** ${review.language}\n${verdict}`.slice(0, 2000),
     files: [new AttachmentBuilder(review.image, { name: "code-review.png" })],
   };
 }

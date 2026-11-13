@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 export interface CodeReview {
   language: string;
   errorLines: number[];
+  /** Compiler/parser messages by line; lines without one were flagged by the model. */
+  messages: Record<string, string>;
   image: Buffer;
 }
 
@@ -15,6 +17,7 @@ interface WorkerReply {
   error?: string;
   language?: string;
   errorLines?: number[];
+  messages?: Record<string, string>;
   image?: string;
 }
 
@@ -54,6 +57,7 @@ function startWorker(): Promise<void> {
         request?.resolve({
           language: reply.language ?? "unknown",
           errorLines: reply.errorLines ?? [],
+          messages: reply.messages ?? {},
           image: Buffer.from(reply.image, "base64"),
         });
       }

@@ -19,6 +19,9 @@ The review runs locally on the CPU with Liquid AI's
 [d1-2B](https://huggingface.co/LiquidAI/d1-2B) decision model, from the Python
 project in `review/`. The model detects the language when the file has no
 extension, and rates every line for errors in the context of the whole file.
+For TypeScript and JavaScript the project's own `tsc` also type-checks the code,
+and for Python the code is compiled to find syntax errors. These exact errors are
+added to the model's flags, and the reply shows each compiler message by its line.
 On first use, `uv` installs the Python dependencies and the model downloads from
 Hugging Face. That first review takes a while; later ones take a few seconds.
 The model needs about 8 GB of RAM.

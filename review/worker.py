@@ -4,7 +4,11 @@ import base64
 import io
 import json
 import os
+import re
+import subprocess
 import sys
+import tempfile
+from pathlib import Path
 
 # Libraries may print to stdout; keep the real stdout for the JSON protocol only.
 protocol_out = sys.stdout
@@ -25,6 +29,14 @@ from transformers import AutoModel  # noqa: E402
 MODEL_ID = os.environ.get("REVIEW_MODEL", "LiquidAI/d1-2B")
 ERROR_THRESHOLD = float(os.environ.get("REVIEW_THRESHOLD", "0.8"))
 MAX_LINES = 300  # shortcut: one question per line shares the context window, raise after testing longer files
+
+# The bot's own TypeScript compiler gives exact errors for TS/JS; the model covers the rest.
+TSC = Path(__file__).resolve().parent.parent / "node_modules" / ".bin" / "tsc"
+TS_LANGUAGES = {"typescript", "tsx"}
+JS_LANGUAGES = {"javascript", "jsx"}
+TS_SUFFIXES = {".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"}
+IGNORED_TS_CODES = {"2307", "7016"}  # a pasted snippet can't see the author's installed modules
+TS_ERROR = re.compile(r"\((\d+),\d+\): error TS(\d+): (.*)")
 
 # Keys are Pygments lexer aliases, so the model's choice is also the highlighter.
 LANGUAGES = {
@@ -105,6 +117,41 @@ def find_error_lines(model, lines: list[str]) -> list[int]:
     )
 
 
+def compiler_errors(code: str, language: str, filename: str | None) -> dict[int, str]:
+    """Exact errors from a real parser/compiler, as {line: message}."""
+    if language == "python":
+        try:
+            compile(code, filename or "<code>", "exec")
+        except SyntaxError as error:
+            return {error.lineno or 1: f"SyntaxError: {error.msg}"}
+        return {}
+    if language not in TS_LANGUAGES | JS_LANGUAGES or not TSC.exists():
+        return {}
+
+    suffix = Path(filename or "").suffix
+    if suffix not in TS_SUFFIXES:
+        suffix = ".ts" if language in TS_LANGUAGES else ".js"
+    with tempfile.TemporaryDirectory() as folder:
+        path = Path(folder) / f"snippet{suffix}"
+        path.write_text(code)
+        result = subprocess.run(
+            [
+                str(TSC), "--ignoreConfig", "--noEmit", "--pretty", "false",
+                "--strict", "true" if language in TS_LANGUAGES else "false",
+                "--noImplicitAny", "false",  # types imported by a snippet resolve to any; not a bug
+                "--target", "es2022", "--lib", "es2022,dom", "--moduleDetection", "force",
+                "--jsx", "preserve", "--allowJs", "--checkJs", "--skipLibCheck",
+                "--typeRoots", str(TSC.parent.parent / "@types"), "--types", "node", str(path),
+            ],
+            capture_output=True, text=True, timeout=60, cwd=folder,
+        )
+    errors: dict[int, str] = {}
+    for match in TS_ERROR.finditer(result.stdout):
+        if match[2] not in IGNORED_TS_CODES:
+            errors.setdefault(int(match[1]), match[3])
+    return errors
+
+
 def p_yes(answer) -> float:
     return float(answer["noul"] if isinstance(answer, dict) else answer)
 
@@ -142,10 +189,15 @@ def review(model, request: dict) -> dict:
     if len(lines) > MAX_LINES:
         raise ValueError(f"Code is too long: {len(lines)} lines (max {MAX_LINES}).")
     language = detect_language(model, code, request.get("filename"))
-    error_lines = find_error_lines(model, lines)
+    exact = {
+        min(line, len(lines)): message
+        for line, message in compiler_errors(code, language, request.get("filename")).items()
+    }
+    error_lines = sorted(set(find_error_lines(model, lines)) | exact.keys())
     return {
         "language": LANGUAGES.get(language, language),
         "errorLines": error_lines,
+        "messages": {str(line): message for line, message in exact.items()},
         "image": base64.b64encode(render(code, language, error_lines)).decode(),
     }
 

@@ -1,26 +1,40 @@
 {
   "name": "discordbotnew",
   "version": "1.0.0",
-  "description": "A modular Discord bot built with TypeScript and discord.js.",
+  "description": "A Discord bot for large communities with a web dashboard, built with TypeScript and discord.js.",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "build": "tsc",
+    "dev": "concurrently -n bot,web -c blue,magenta \"tsx watch src/index.ts\" \"npm --prefix web run dev\"",
+    "dev:bot": "tsx watch src/index.ts",
+    "build": "tsc && npm --prefix web run build",
     "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit && npm --prefix web run typecheck",
     "deploy:commands": "tsx src/deploy-commands.ts",
     "delete:commands": "tsx src/delete-commands.ts",
-    "typecheck": "tsc --noEmit"
+    "db:generate": "drizzle-kit generate",
+    "postinstall": "npm --prefix web install"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "@fastify/helmet": "^13.2.0",
+    "@fastify/rate-limit": "^11.2.2",
+    "@fastify/secure-session": "^8.4.2",
+    "@fastify/static": "^10.1.11",
+    "better-sqlite3": "^13.1.1",
     "discord.js": "^14.28.1",
-    "dotenv": "^18.0.10"
+    "dotenv": "^18.0.10",
+    "drizzle-orm": "^0.45.4",
+    "fastify": "^5.12.8",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^26.6.6",
+    "concurrently": "^10.0.7",
+    "drizzle-kit": "^0.31.11",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2"
   },

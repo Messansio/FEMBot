@@ -7,7 +7,7 @@ import {
   type ChatInputCommandInteraction,
 } from "discord.js";
 
-import type { Command } from "../types/command.js";
+import type { Command } from "../../types/command.js";
 
 export const avatarCommand: Command = {
   data: new SlashCommandBuilder()

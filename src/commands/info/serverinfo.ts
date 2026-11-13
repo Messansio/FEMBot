@@ -1,10 +1,11 @@
 import {
   EmbedBuilder,
+  MessageFlags,
   SlashCommandBuilder,
   type ChatInputCommandInteraction,
 } from "discord.js";
 
-import type { Command } from "../types/command.js";
+import type { Command } from "../../types/command.js";
 
 export const serverInfoCommand: Command = {
   data: new SlashCommandBuilder()
@@ -15,7 +16,7 @@ export const serverInfoCommand: Command = {
     if (!interaction.guild) {
       await interaction.reply({
         content: "This command can only be used in a server.",
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }

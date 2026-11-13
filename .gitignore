@@ -39,3 +39,8 @@ lerna-debug.log*
 Thumbs.db
 *.swp
 *.swo
+# Bot data (SQLite database)
+data/
+*.db
+*.db-shm
+*.db-wal

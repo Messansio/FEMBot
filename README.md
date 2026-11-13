@@ -22,9 +22,17 @@ extension, and rates every line for errors in the context of the whole file.
 For TypeScript and JavaScript the project's own `tsc` also type-checks the code,
 and for Python the code is compiled to find syntax errors. These exact errors are
 added to the model's flags, and the reply shows each compiler message by its line.
-On first use, `uv` installs the Python dependencies and the model downloads from
-Hugging Face. That first review takes a while; later ones take a few seconds.
-The model needs about 8 GB of RAM.
+Install the Python dependencies and download the model once, before the first
+review (the model is a few GB):
+
+```sh
+cd review
+uv sync
+uv run hf download LiquidAI/d1-2B
+```
+
+The bot loads the model on the first review, which takes about 15 seconds; later
+reviews take a few seconds. The model needs about 8 GB of RAM.
 
 The model can miss bugs or flag correct lines. Tune it with `REVIEW_THRESHOLD`
 (default `0.8`, higher means fewer lines flagged) or pick another d1 model with

@@ -14,7 +14,7 @@ When you're done you'll have 3 values for `.env`:
 **Before you start, decide on `PUBLIC_URL`**: the address where browsers reach the
 bot's web server, on the port set by `WEB_PORT` (default `3000`). For testing on your
 own computer it's `http://localhost:3000`; for friends it must be a public HTTPS
-address (see [github-setup.md § 1](github-setup.md#1-pick-the-bots-public-url)). You
+address (see [setup.md § 4](setup.md#4-choose-web_port-and-public_url)). You
 can change it later, as described at the end of this guide.
 
 ## Why a GitHub App, not a token or an OAuth App
@@ -153,7 +153,7 @@ don't install anything: they just sign in, and GitHub checks they can see the re
 ## Step 5: Check it works
 
 1. Put the three values in `.env`, along with the other variables from
-   [github-setup.md](github-setup.md).
+   [setup.md](setup.md).
 2. Start the bot with `npm run dev`. The console shows:
    `OAuth server listening on :3000 (http://localhost:3000)`
 3. In Discord, run `/github login` and click the button.

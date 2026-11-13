@@ -14,8 +14,7 @@ A modular Discord bot built with TypeScript, Node.js, and discord.js.
 | `/ping`, `/clear`, `/userinfo`, `/serverinfo`, `/avatar`, `/poll` | Utilities |
 
 The bot never changes a GitHub repository: it only reads. To turn on the GitHub
-commands, follow [docs/github-setup.md](docs/github-setup.md); the GitHub App part
-has its own step-by-step tutorial in [docs/github-app.md](docs/github-app.md).
+commands, follow [docs/setup.md](docs/setup.md).
 
 ## Requirements
 
@@ -57,47 +56,23 @@ logic bugs such as a wrong loop bound or comparison.
 
 ## Setup
 
-1. Install dependencies:
+**Setting up your own copy from zero?** Follow [docs/setup.md](docs/setup.md). It
+creates the Discord bot and the GitHub App step by step and fills in every `.env`
+key. The GitHub App form is explained field by field in
+[docs/github-app.md](docs/github-app.md).
 
-   ```sh
-   npm install
-   ```
-
-2. Copy `.env.example` to `.env` and set:
-   - `DISCORD_TOKEN`: the bot token from the Developer Portal
-   - `DISCORD_CLIENT_ID`: the application's **Application ID**
-   - `DISCORD_GUILD_ID` (optional): your server ID, for instant command updates
-
-   Keep `.env` private and never commit your bot token.
-
-3. Invite the bot to your server with the `bot` and `applications.commands`
-   OAuth2 scopes. It uses the `Guilds`, `GuildVoiceStates`,
-   `GuildMessageReactions` and `DirectMessageReactions` gateway intents (none is
-   privileged). The GitHub commands need more permissions and setup:
-   see [docs/github-setup.md](docs/github-setup.md).
-
-## Start the bot (development)
-
-For immediate testing, set `DISCORD_GUILD_ID` in `.env`. Enable Developer Mode
-in Discord under **User Settings > Advanced**, then right-click your server and
-choose **Copy Server ID**.
-
-From the project folder, register the slash command:
+Quick start once `.env` is filled in:
 
 ```sh
+npm install
+cd review && uv sync && cd ..
 npm run deploy:commands
-```
-
-When `DISCORD_GUILD_ID` is set, commands are registered to that server and
-should appear right away. Without it, commands are registered globally, and
-Discord may take some time to show them. Then start the bot:
-
-```sh
 npm run dev
 ```
 
-Leave this terminal running while you use the bot. For later starts, run
-`npm run dev`; redeploy commands only when their definitions change.
+Run `npm run deploy:commands` again whenever command definitions change. With
+`DISCORD_GUILD_ID` set, commands appear in that server right away; without it they
+are registered globally and can take a while to show up.
 
 ## Tests
 

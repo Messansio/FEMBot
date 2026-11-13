@@ -83,7 +83,7 @@ client.once(Events.ClientReady, (readyClient) => {
   console.info(`Logged in as ${readyClient.user.tag}`);
   restoreMutes(readyClient);
   if (isGitHubConfigured()) startWebServer(readyClient);
-  else console.info("GitHub features are off: see docs/github-setup.md to turn them on.");
+  else console.info("GitHub features are off: see docs/setup.md to turn them on.");
 });
 
 client.on(Events.InteractionCreate, (interaction) => {

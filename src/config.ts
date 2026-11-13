@@ -50,14 +50,14 @@ function parsePort(value: string): number {
   return port;
 }
 
-/** Settings for the GitHub project commands; throws a readable error until docs/github-setup.md is done. */
+/** Settings for the GitHub project commands; throws a readable error until docs/setup.md is done. */
 export function getGitHubSetup(): GitHubSetup {
   if (githubSetup) return githubSetup;
 
   const missing = GITHUB_VARIABLES.filter((name) => !getOptionalEnvironmentVariable(name));
   if (missing.length) {
     throw new UserError(
-      `GitHub features are not set up. Missing: ${missing.join(", ")}. See docs/github-setup.md.`,
+      `GitHub features are not set up. Missing: ${missing.join(", ")}. See docs/setup.md.`,
     );
   }
 

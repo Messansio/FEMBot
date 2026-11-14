@@ -93,15 +93,13 @@ DMs.
 
 ### `/git commit hash`
 
-The commit as coloured text:
-- short hash, title and message;
-- author and date, and the parent commits;
+A compact coloured view, in one or two messages:
+- the short hash and title, then repo, author and date;
 - a `+additions −deletions` summary with a green/red bar;
-- a list of every changed file with its own counts;
-- each file's diff with old and new line numbers: additions in green with `+`,
-  deletions in red with `−`.
+- each changed file with its counts and only its changed lines (up to 8 per file), with
+  line numbers: additions in green with `+`, deletions in red with `−`.
 
-Very large commits also come with the full `.diff` attached.
+When anything is cut, the full `.diff` is attached.
 
 ### `/git tree`
 

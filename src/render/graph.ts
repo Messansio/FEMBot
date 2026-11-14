@@ -230,7 +230,7 @@ export function renderGraphText(
   }
 
   const header = [
-    `${paint(` ${symbols.branch} ${repo} `, "foreground", { inverse: true })}`,
+    `${paint(`${symbols.branch} ${repo}`, "foreground", { bold: true })}`,
     paint(subtitle(shown), "muted"),
     "",
   ];

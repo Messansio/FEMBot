@@ -77,12 +77,13 @@ def fit(text: str, font, max_width: float) -> str:
 
 
 def pill(canvas: Canvas, x, y, text, font, color, solid=False, height=22) -> float:
-    """Rounded label; returns its width. Solid = filled with the colour (black text)."""
+    """Rounded label; returns its width. Text is always the (readable) colour on a dark tint of it;
+    `solid` makes the tint stronger for the one label that matters most (state, default branch)."""
+    color = theme.readable(color)
     width = font.getlength(text) / canvas.k + 16
-    fill = color if solid else theme.mix(color, theme.BACKGROUND, 0.16)
-    canvas.rect((x, y - height / 2, x + width, y + height / 2), fill=fill,
-                outline=None if solid else theme.mix(color, theme.BACKGROUND, 0.45), radius=6)
-    canvas.text((x + 8, y), text, font, theme.BACKGROUND if solid else color)
+    canvas.rect((x, y - height / 2, x + width, y + height / 2), fill=theme.mix(color, theme.BACKGROUND, 0.26 if solid else 0.14),
+                outline=theme.mix(color, theme.BACKGROUND, 0.7 if solid else 0.4), radius=6)
+    canvas.text((x + 8, y), text, font, color)
     return width
 
 
@@ -203,7 +204,7 @@ def draw_pull(data: dict) -> bytes:
     x += 28
     for part, font, fill in (
         (data["author"]["login"], sans(14 * k, 600), theme.FOREGROUND),
-        (f"wants to merge {data['commitsCount']} commit{'s' if data['commitsCount'] != 1 else ''} into", sans(14 * k), theme.SECONDARY),
+        (f"{'merged' if data['state'] == 'merged' else 'wants to merge'} {data['commitsCount']} commit{'s' if data['commitsCount'] != 1 else ''} into", sans(14 * k), theme.SECONDARY),
     ):
         c.text((x, y), part, font, fill)
         x += font.getlength(part) / k + 6

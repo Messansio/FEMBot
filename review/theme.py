@@ -39,6 +39,18 @@ def mix(color: str, background: str, alpha: float) -> str:
     return "#" + "".join(f"{round(x * alpha + y * (1 - alpha)):02x}" for x, y in zip(c, b))
 
 
+
+def readable(color: str, minimum: float = 0.5) -> str:
+    """`color` lifted toward white until it reads on the black background (GitHub labels can be any colour)."""
+    def luminance(hex_color: str) -> float:
+        r, g, b = (int(hex_color[i:i + 2], 16) / 255 for i in (1, 3, 5))
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b
+    for step in range(11):
+        lifted = mix("#ffffff", color, step / 10)
+        if luminance(lifted) >= minimum:
+            return lifted
+    return "#ffffff"
+
 FONT_DIRS = [
     Path.home() / "Library/Fonts", Path("/Library/Fonts"), Path("/System/Library/Fonts"),
     Path("/usr/share/fonts"), Path("/usr/local/share/fonts"), Path.home() / ".local/share/fonts",

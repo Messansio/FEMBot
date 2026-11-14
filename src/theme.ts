@@ -32,8 +32,10 @@ export const symbols = {
 } as const;
 
 // Discord's ```ansi blocks support 8 foreground colours; these are the closest to the palette.
+// Secondary text uses the block's default colour: Discord draws code 30 ("gray") almost black
+// on its dark theme, and background colours (40–47) are muddy, so neither is used.
 const ANSI = {
-  muted: 30,
+  muted: undefined,
   red: 31,
   green: 32,
   amber: 33,
@@ -48,13 +50,12 @@ export type AnsiColor = keyof typeof ANSI;
 /** Lane colours, in order, for git graphs (text and image use the same order). */
 export const laneColors: AnsiColor[] = ["blue", "pink", "amber", "green", "teal", "red"];
 
-export function paint(text: string, color: AnsiColor, options: { bold?: boolean; inverse?: boolean } = {}): string {
+export function paint(text: string, color: AnsiColor, options: { bold?: boolean } = {}): string {
   const codes: number[] = [];
   if (options.bold) codes.push(1);
-  // Inverse = a "pill": dark text on Discord's light background colour.
-  codes.push(options.inverse ? 30 : ANSI[color]);
-  if (options.inverse) codes.push(47);
-  return `\u001b[${codes.join(";")}m${text}\u001b[0m`;
+  const code = ANSI[color];
+  if (code !== undefined) codes.push(code);
+  return codes.length ? `\u001b[${codes.join(";")}m${text}\u001b[0m` : text;
 }
 
 export function ansiBlock(lines: string[]): string {

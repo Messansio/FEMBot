@@ -1,7 +1,7 @@
 import { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import { UserError } from "./errors.js";
 import { GitHubError, githubGet, githubQuery } from "./github.js";
-import { packMessages, renderCommitSummary, renderPatches } from "./render/commit.js";
+import { packMessages, renderCommit } from "./render/commit.js";
 import type { CommitDetails } from "./render/commit.js";
 import { layoutGraph, renderGraphText, topoSort } from "./render/graph.js";
 import type { GraphCommit, GraphLayout } from "./render/graph.js";
@@ -54,16 +54,14 @@ export async function commitView(token: string, ref: RepoRef, hash: string): Pro
     `No commit \`${hash}\` in ${name}.`,
   );
 
-  const summary = packMessages([renderCommitSummary(commit, name)], 2);
-  const patches = packMessages(renderPatches(commit.files ?? []), 4);
+  const { messages, trimmed } = renderCommit(commit, name);
   const files: AttachmentBuilder[] = [];
-  const truncated = !summary.complete || !patches.complete || (commit.files ?? []).some((f) => !f.patch);
-  if (truncated) {
+  if (trimmed) {
     const diff = await githubGet<string>(token, `${repoPath(ref)}/commits/${commit.sha}`, "application/vnd.github.diff");
     files.push(new AttachmentBuilder(Buffer.from(diff.slice(0, 7_000_000)), { name: `${commit.sha.slice(0, 7)}.diff` }));
   }
   return {
-    messages: [...summary.messages, ...patches.messages],
+    messages,
     files,
     components: [githubButton(commit.html_url, "Open commit on GitHub")],
   };
@@ -319,7 +317,7 @@ export async function pullView(token: string, ref: RepoRef, number: number | nul
       githubGet<PullSummary[]>(token, `${repoPath(ref)}/pulls?state=open&per_page=15`),
       `Can't find ${name}, or your GitHub account can't see it.`,
     );
-    const lines = [`${paint(` ${symbols.branch} ${name} `, "foreground", { inverse: true })} ${paint("open pull requests", "muted")}`, ""];
+    const lines = [`${paint(`${symbols.branch} ${name}`, "foreground", { bold: true })} ${paint("open pull requests", "muted")}`, ""];
     if (!pulls.length) lines.push(paint("No open pull requests.", "muted"));
     const numberWidth = Math.max(0, ...pulls.map((p) => String(p.number).length)) + 2;
     let size = lines.join("\n").length;
